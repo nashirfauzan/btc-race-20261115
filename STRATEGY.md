@@ -1,13 +1,17 @@
-# Strategy
+# Strategy v2: deep-dip rebound
 
-The bot uses only the closed bars already delivered in `batch`. It ignores seed and absolute date, and never reads a wall clock, the network, or outside files.
+The bot reads only `hello`, each closed `batch` and the current account. It ignores seed and absolute date, and reads no wall clock, network or external file. `main.ts` runs `DipStrategy`; `strategy.ts` retains the earlier momentum bot for regression comparisons.
 
-It warms up on 144 observed closes, then buys when 60-bar momentum exceeds 100 basis points and the 36-bar EMA exceeds the 144-bar EMA by more than one third of that threshold. Entry size is 90% of equity, bounded by cash, the harness weight cap and a maximum estimated impact of 25 basis points at the last close's depth.
+After 120 observed closes, it buys when the current close is at least 215 basis points below their rolling mean. The intended stake is 99% of equity, bounded by cash, the harness weight limit and the amount whose estimated impact at the last close is at most 29 basis points. A thin pool reduces position size.
 
-A position exits when the fast EMA falls below the slow EMA with 8 basis points of hysteresis, price falls 90 basis points from its high while held, or its marked value is 150 basis points below cost. A completed exit starts a 24-bar cooldown. A 12% decline from the account's observed equity peak halts further entries and repeatedly asks to liquidate any remaining position.
+A position exits on a marked gain of 450 basis points over cost, a loss of 200 basis points, 120 elapsed batches after the fill, or a 100 basis point retracement from its highest observed close after first reaching a 150 basis point gain. The trailing stop stays armed until the position closes. A completed exit starts a 30-bar cooldown. The account's 12% drawdown halt liquidates and prevents further entries.
 
-If no position has filled by batch 720 after warmup, the bot opens one minimum-notional position and closes it on the next observed bar. This satisfies the race's trade floor on a market with no qualifying trend, while limiting capital exposed by that fallback. It remains subject to fees, slippage, price gaps and order rejection.
+If no position has filled by batch 900 after warmup, the bot buys the minimum notional once and sells on the next observed bar. This limits exposure on a quiet market and meets the trade floor subject to successful fills. Gaps and slippage rejection still apply.
 
-Prices and indicators use deterministic IEEE 754 arithmetic. Money, quantity, weight limits and wire amounts use integers through the kit's unmodified SDK. No future price, absolute target price, dev timestamp or recorded sequence of trades is embedded in the entry.
+## Public inspiration and testing
 
-The thresholds were compared on the public dev tape and its two chronological halves. That tape is a single historical day; the unseen race may produce different outcomes. The kit's own grader, including fees, slippage and depth impact, is the acceptance check.
+The public dev leaderboard's leading titles described crash-rebound and capitulation buying. One title mentioned a deviation from a 120-minute average and a trailing exit. Those public descriptions informed the strategy family. Their source, transcripts and action logs were withheld; none was accessed or copied. This code was authored independently in the submitted build session.
+
+Parameters were compared on the public dev tape, chronological half-windows and start offsets, with scaled prices and depths, nearby parameters, and deterministic price perturbations. These are sensitivity checks of one historical day, not independent out-of-sample evidence. Synthetic falling, rising, choppy and crash scenarios also check behavior; they do not establish future profitability. A crash without recovery can lose money, while a quiet uptrend produces only the small fallback round trip. The unseen race alone decides ranking.
+
+Prices use deterministic IEEE 754 arithmetic; money and sizing caps use BigInt through the unmodified SDK. No fixed BTC price, dev timestamp or recorded sequence of trades appears in the entry. The official grader executes the bot twice and reproduces its action log before submission.
